@@ -45,7 +45,6 @@ class UploadThread(threading.Thread):
 
     def run(self):
         while True:
-            self._prepare_upload()
             self._upload()
             self._refresh_config()
             collectd.info(
@@ -63,8 +62,10 @@ class UploadThread(threading.Thread):
     def _prepare_upload(self):
         now = datetime.now()
         values = []
+        periods = []
         for period, data in VALUES.items():
             if period.hour < now.hour:
+                periods.append(period.isoformat())
                 values.append(
                     [
                         '{}:{}:{}'.format(
@@ -72,7 +73,7 @@ class UploadThread(threading.Thread):
                             AWS_ACCOUNT_ID,
                             INSTANCE_ID
                         ),
-                        period,
+                        period.isoformat(),
                         data.get('avg'),
                         data.get('max'),
                         data.get('min')
@@ -99,11 +100,13 @@ class UploadThread(threading.Thread):
                     ]
                 }
             }
+        return periods, values
 
     def _upload(self):
         '''
         upload data
         '''
+        periods, _ = self._prepare_upload()
         if self.payload:
             res = self._api_request()
             if not res or res.get('failed') > 0 or res.get('errors'):
@@ -119,6 +122,10 @@ class UploadThread(threading.Thread):
             self.payload = {}
             global MEMORY
             MEMORY = MEMORY_TEMPLATE.copy()
+            # drop sent metrics from store
+            global VALUES
+            for period in periods:
+                del VALUES[period]
 
     def _api_request(self):
         '''
