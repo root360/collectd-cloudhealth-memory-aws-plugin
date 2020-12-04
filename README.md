@@ -21,14 +21,44 @@ Within AWS, CloudHealth already has knowledge about CPU and network metrics, so 
 * The payload can contain a max of 1000 data points. If there are more than 1000 data points, the entire request is rejected with a 422 response.
 * When posting to file systems, the associated instance must be present and active. However, if a file system object does not currently exist, a new one is automatically created and linked to the instance.
 
+Additionally to the information provided by CloudHealth, the API expects the *"hourly resolution"* to be sliced to the full hour (e.g. `2020-12-04T17:00:00`). If not, the API will respond:
+
+```json
+{
+  "errors": [],
+  "succeeded": 0,
+  "failed": 1,
+  "datasets": [
+    {
+      "errors": [],
+      "succeeded": 0,
+      "failures": [
+        {
+          "error": "Date/time value '2020-12-04T17:43:35' cannot have a non-zero minute value.",
+          "row": [
+            "<region>:<aws-account-id>:<instance-id>",
+            "2020-12-04T17:43:35",
+            37.088733582900176,
+            52.81394681853567,
+            33.08149301429918
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## Design
 
-* Designed as plain collectd python plugin which only receives `memory.used.percent` metrics from a filter chain.
+* Runs as plain collectd python plugin which only receives `memory.used.percent` metrics from a filter chain.
 * Collects the following metrics for a period of 1 hour (see CloudHealth API Limitation):
   * `memory:used:percent.avg`
   * `memory:used:percent.max`
   * `memory:used:percent.min`
 * Uses a background thread for uploading the metrics after 1 hour
+
+![Design - can be edited with draw.io](/design.png)
 
 ## Requirements
 

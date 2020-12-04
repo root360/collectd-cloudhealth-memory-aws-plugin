@@ -9,7 +9,7 @@ import collectd
 import os
 import sys
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from yaml import load as yaml_load, dump as yaml_dump, SafeLoader
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -28,6 +28,7 @@ MEMORY_TEMPLATE = {
     'avg': None
 }
 MEMORY = MEMORY_TEMPLATE.copy()
+VALUES = {}
 
 
 class UploadThread(threading.Thread):
@@ -60,52 +61,50 @@ class UploadThread(threading.Thread):
         ).get('interval', 3600)
 
     def _prepare_upload(self):
-        self.payload = {
-            'metrics': {
-                'datasets': [
-                    {
-                        'metadata': {
-                            'assetType': 'aws:ec2:instance',
-                            'granularity': 'hour',
-                            'keys': [
-                                'assetId',
-                                'timestamp',
-                                'memory:used:percent.avg',
-                                'memory:used:percent.max',
-                                'memory:used:percent.min'
-                            ]
-                        },
-                        'values': [
-                            '{}:{}:{}'.format(
-                                REGION_NAME,
-                                AWS_ACCOUNT_ID,
-                                INSTANCE_ID
-                            ),
-                            datetime.now().replace(microsecond=0).isoformat(),
-                            MEMORY.get('avg'),
-                            MEMORY.get('max'),
-                            MEMORY.get('min')
-                        ]
-                    }
-                ]
+        now = datetime.now()
+        values = []
+        for period, data in VALUES.items():
+            if period.hour < now.hour:
+                values.append(
+                    [
+                        '{}:{}:{}'.format(
+                            REGION_NAME,
+                            AWS_ACCOUNT_ID,
+                            INSTANCE_ID
+                        ),
+                        period,
+                        data.get('avg'),
+                        data.get('max'),
+                        data.get('min')
+                    ]
+                )
+        if values:
+            self.payload = {
+                'metrics': {
+                    'datasets': [
+                        {
+                            'metadata': {
+                                'assetType': 'aws:ec2:instance',
+                                'granularity': 'hour',
+                                'keys': [
+                                    'assetId',
+                                    'timestamp',
+                                    'memory:used:percent.avg',
+                                    'memory:used:percent.max',
+                                    'memory:used:percent.min'
+                                ]
+                            },
+                            'values': values
+                        }
+                    ]
+                }
             }
-        }
 
     def _upload(self):
         '''
         upload data
         '''
-        now = datetime.now()
-        last_upload = datetime.fromtimestamp(
-            CONFIG.get('timestamps', {}).get('upload', 0)
-        )
-        next_upload = last_upload + timedelta(seconds=self.upload_interval)
-        if (
-            next_upload <= now
-            and MEMORY.get('avg')
-            and MEMORY.get('max')
-            and MEMORY.get('min')
-        ):
+        if self.payload:
             res = self._api_request()
             if not res or res.get('failed') > 0 or res.get('errors'):
                 collectd.error(
@@ -117,6 +116,7 @@ class UploadThread(threading.Thread):
             )
             update_timestamp('upload')
             # reset metrics for the next period
+            self.payload = {}
             global MEMORY
             MEMORY = MEMORY_TEMPLATE.copy()
 
@@ -140,20 +140,27 @@ class UploadThread(threading.Thread):
                 metrics_url,
                 json=self.payload,
                 headers=headers)
-            if res.status_code == 200:
-                try:
-                    # use yaml loader to get rid of unicode
-                    # u'' strings in python2
-                    res_json = yaml_load(res.text, Loader=SafeLoader)
-                    return res_json
-                except Exception as err:
-                    collectd.error(
-                        'cloudhealth - error parsing response {}\n{}'.format(
-                            res.text,
-                            err
-                        )
+            if res.status_code != 200:
+                collectd.error(
+                    'cloudhealth - API request failed with {}\n{}'.format(
+                        res.status_code,
+                        res.text
                     )
-                    return {}
+                )
+                return False
+            try:
+                # use yaml loader to get rid of unicode
+                # u'' strings in python2
+                res_json = yaml_load(res.text, Loader=SafeLoader)
+                return res_json
+            except Exception as err:
+                collectd.error(
+                    'cloudhealth - error parsing API response {}\n{}'.format(
+                        res.text,
+                        err
+                    )
+                )
+                return {}
         except Exception as err:
             collectd.error(
                 'cloudhealth - error: {}'.format(err)
@@ -172,6 +179,16 @@ def update_timestamp(timestamp):
         }
     )
     return dump_config()
+
+
+def update_values(perf_data):
+    period = datetime.now().replace(minute=0, second=0, microsecond=0)
+    global VALUES
+    VALUES.update(
+        {
+            period: perf_data
+        }
+    )
 
 
 def update_min(perf_data, metric_plugin, metric_type,
@@ -332,6 +349,7 @@ def write_func(values):
                 values.type_instance,
                 values.values[0]
             )
+            update_values(perf_data_mapping[values.plugin])
 
 
 if __name__ != '__main__':
