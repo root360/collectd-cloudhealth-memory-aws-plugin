@@ -130,6 +130,8 @@ class UploadThread(threading.Thread):
             global VALUES
             for period in periods:
                 del VALUES[period]
+            if CONFIG.get('persistent'):
+                dump_config()
             return True
         return True
 
@@ -286,6 +288,7 @@ def config_func(config):
     interval = 0
     global CONFIG_FILE
     global CONFIG
+    global VALUES
     for item in config.children:
         key = item.key.lower()
         value = item.values[0]
@@ -324,6 +327,7 @@ def config_func(config):
         CONFIG.update({'interval': interval})
     if persistent:
         CONFIG.update({'persistent': True})
+        VALUES = CONFIG.get('values', {})
     else:
         CONFIG.update({'persistent': False})
     dump_config()
