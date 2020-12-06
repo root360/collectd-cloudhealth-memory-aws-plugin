@@ -10,6 +10,7 @@ import os
 import sys
 import threading
 from datetime import datetime
+from distutils import util
 from yaml import load as yaml_load, dump as yaml_dump, SafeLoader
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -45,14 +46,16 @@ class UploadThread(threading.Thread):
 
     def run(self):
         while True:
-            self._upload()
-            self._refresh_config()
-            collectd.info(
-                'cloudhealth - UploadThread sleeping for {}'.format(
-                    self.upload_interval
+            try:
+                self._upload()
+                self._refresh_config()
+                sleep(self.upload_interval)
+            except Exception as err:
+                collectd.info(
+                    'cloudhealth - upload failed with error:\n{}'.format(
+                        err
+                    )
                 )
-            )
-            sleep(self.upload_interval)
 
     def _refresh_config(self):
         self.upload_interval = CONFIG.get(
@@ -64,8 +67,9 @@ class UploadThread(threading.Thread):
         values = []
         periods = []
         for period, data in VALUES.items():
-            if period.hour < now.hour:
-                periods.append(period.isoformat())
+            timestamp = datetime.fromtimestamp(period)
+            if timestamp.hour < now.hour:
+                periods.append(period)
                 values.append(
                     [
                         '{}:{}:{}'.format(
@@ -73,7 +77,7 @@ class UploadThread(threading.Thread):
                             AWS_ACCOUNT_ID,
                             INSTANCE_ID
                         ),
-                        period.isoformat(),
+                        timestamp.isoformat(),
                         data.get('avg'),
                         data.get('max'),
                         data.get('min')
@@ -126,6 +130,8 @@ class UploadThread(threading.Thread):
             global VALUES
             for period in periods:
                 del VALUES[period]
+            return True
+        return True
 
     def _api_request(self):
         '''
@@ -196,6 +202,8 @@ def update_values(perf_data):
             period: perf_data
         }
     )
+    if CONFIG.get('persistent'):
+        dump_config()
 
 
 def update_min(perf_data, metric_plugin, metric_type,
@@ -234,6 +242,8 @@ def update_avg(perf_data, metric_plugin, metric_type,
 
 
 def dump_config():
+    if CONFIG.get('persistent'):
+        CONFIG.update({'values': VALUES})
     try:
         with open(CONFIG_FILE, 'w') as config:
             yaml_dump(CONFIG, config, default_flow_style=False)
@@ -281,6 +291,8 @@ def config_func(config):
             CONFIG_FILE = value
         if key == 'interval':
             interval = value
+        if key == 'persistent':
+            persistent = bool(util.strtobool(value))
     required = [
         token
     ]
@@ -306,6 +318,10 @@ def config_func(config):
         CONFIG.update({'token': token})
     if interval:
         CONFIG.update({'interval': interval})
+    if persistent:
+        CONFIG.update({'persistent': True})
+    else:
+        CONFIG.update({'persistent': False})
     dump_config()
     fetch_ec2_metadata()
     upload_thread = UploadThread()

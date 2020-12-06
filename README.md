@@ -23,6 +23,8 @@ Within AWS, CloudHealth already has knowledge about CPU and network metrics, so 
 
 Additionally to the information provided by CloudHealth, the API expects the *"hourly resolution"* to be sliced to the full hour (e.g. `2020-12-04T17:00:00`). If not, the API will respond:
 
+<details>
+  <summary>Click to expand!</summary>
 ```json
 {
   "errors": [],
@@ -48,6 +50,7 @@ Additionally to the information provided by CloudHealth, the API expects the *"h
   ]
 }
 ```
+</details>
 
 ## Design
 
@@ -56,7 +59,10 @@ Additionally to the information provided by CloudHealth, the API expects the *"h
   * `memory:used:percent.avg`
   * `memory:used:percent.max`
   * `memory:used:percent.min`
+* Stores metrics in memory by default (see `cloudhealthmemory.conf` for persistence)
 * Uses a background thread for uploading the metrics after 1 hour
+  * including retry on connection issues
+  * if upload does not work, the next upload cycle will include all missing metrics
 
 ![Design - can be edited with draw.io](/design.png)
 
