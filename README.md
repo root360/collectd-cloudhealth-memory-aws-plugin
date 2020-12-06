@@ -25,6 +25,7 @@ Additionally to the information provided by CloudHealth, the API expects the *"h
 
 <details>
   <summary>Click to expand!</summary>
+
 ```json
 {
   "errors": [],
