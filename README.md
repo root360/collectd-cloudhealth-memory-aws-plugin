@@ -6,8 +6,10 @@ Upload EC2 memory metrics to CloudHealth for better cost optimization!
 
 We are aware that there is an official agent to upload metrics. However, the agent failed to fit in our environment due to variuos reasons:
 
-* Runs it's own collectd daemon (besided the one we're already using)
-* Misc. compliance requirements
+* Runs it's own embedded collectd daemon (besides the one we're already using)
+* Misc. compliance requirements (where each component needs to be validated):
+  * Installation process fetches a lot of resources from the outside world via wget (contrasting to a single package from a signed repository)
+  * Agent code runs in embedded Ruby
 
 Within AWS, CloudHealth already has knowledge about CPU and network metrics, so we just need to add the memory metrics on our own by using the [API](https://apidocs.cloudhealthtech.com/#metrics_introduction-to-metrics-api).
 
