@@ -186,16 +186,20 @@ def update_timestamp(timestamp):
     timestamps = CONFIG.get('timestamps', {})
     timestamps.update(
         {
-            timestamp: (
+            timestamp: int((
                 datetime.now() - datetime(1970, 1, 1)
-            ).total_seconds()
+            ).total_seconds())
         }
     )
     return dump_config()
 
 
 def update_values(perf_data):
-    period = datetime.now().replace(minute=0, second=0, microsecond=0)
+    period = int(
+        (
+            datetime.now().replace(minute=0, second=0, microsecond=0) - datetime(1970, 1, 1)
+        ).total_seconds()
+    )
     global VALUES
     VALUES.update(
         {
