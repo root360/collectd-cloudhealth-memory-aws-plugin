@@ -287,6 +287,7 @@ def fetch_ec2_metadata():
 
 def config_func(config):
     interval = 0
+    persistent = False
     global CONFIG_FILE
     global CONFIG
     for item in config.children:
