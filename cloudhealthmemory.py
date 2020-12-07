@@ -248,6 +248,7 @@ def update_avg(perf_data, metric_plugin, metric_type,
 
 
 def dump_config():
+    global CONFIG
     if CONFIG.get('persistent'):
         CONFIG.update({'values': VALUES})
     try:
@@ -288,7 +289,6 @@ def config_func(config):
     interval = 0
     global CONFIG_FILE
     global CONFIG
-    global VALUES
     for item in config.children:
         key = item.key.lower()
         value = item.values[0]
@@ -327,7 +327,6 @@ def config_func(config):
         CONFIG.update({'interval': interval})
     if persistent:
         CONFIG.update({'persistent': True})
-        VALUES = CONFIG.get('values', {})
     else:
         CONFIG.update({'persistent': False})
     dump_config()
