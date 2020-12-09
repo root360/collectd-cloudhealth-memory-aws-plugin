@@ -68,7 +68,7 @@ class UploadThread(threading.Thread):
         periods = []
         for period, data in VALUES.items():
             timestamp = datetime.fromtimestamp(period)
-            if timestamp.hour < now.hour:
+            if timestamp.day < now.day or timestamp.hour < now.hour:
                 periods.append(period)
                 values.append(
                     [
