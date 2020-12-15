@@ -334,6 +334,9 @@ def config_func(config):
     upload_thread = UploadThread()
     upload_thread.daemon = True
     upload_thread.start()
+    collectd.info(
+        'cloudhealth - plugin configured successfully'
+    )
 
 
 def write_func(values):
