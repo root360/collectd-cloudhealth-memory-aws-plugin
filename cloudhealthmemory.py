@@ -142,7 +142,8 @@ class UploadThread(threading.Thread):
         '''
         metrics_url = 'https://chapi.cloudhealthtech.com/metrics/v1'
         headers = {
-            'Authorization': 'Bearer {}'.format(CONFIG.get('token'))
+            'Authorization': 'Bearer {}'.format(CONFIG.get('token')),
+            'Content-type': 'application/json'
         }
         retries = Retry(
             total=3,
