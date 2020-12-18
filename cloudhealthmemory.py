@@ -11,6 +11,7 @@ import sys
 import threading
 from datetime import datetime
 from distutils import util
+from json import dumps as json_dumps
 from yaml import load as yaml_load, dump as yaml_dump, SafeLoader
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -153,7 +154,7 @@ class UploadThread(threading.Thread):
         try:
             res = http.post(
                 metrics_url,
-                json=self.payload,
+                data=json_dumps(self.payload),
                 headers=headers)
             if res.status_code != 200:
                 collectd.error(
