@@ -323,6 +323,7 @@ def config_func(config):
         with open(CONFIG_FILE) as config:
             CONFIG = yaml_load(config, Loader=SafeLoader)
     except Exception:
+        CONFIG = {}
         pass
     CONFIG.update({'token': token})
     if interval:
